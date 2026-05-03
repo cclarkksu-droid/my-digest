@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Daily Digest</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      color: #1a1a2e;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+    }
+
+    header h1 {
+      font-size: 1.55rem;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+
+    header .date {
+      font-size: 0.82rem;
+      color: #9fa8c0;
+      margin-top: 3px;
+    }
+
+    .restore-btn {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.2);
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+      white-space: nowrap;
+    }
+    .restore-btn:hover {
+      background: rgba(255,255,255,0.2);
+      border-color: rgba(255,255,255,0.4);
+    }
+
+    /* ── Main grid ── */
+    main {
+      padding: 28px 28px 48px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 28px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    /* ── Section ── */
+    .section {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid rgba(0,0,0,0.08);
+    }
+
+    .section-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .section-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.9px;
+      color: #5a607a;
+    }
+
+    /* ── Note card ── */
+    .note-card {
+      border-radius: 10px;
+      padding: 16px 16px 14px;
+      position: relative;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+      transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.25s ease;
+    }
+    .note-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.07);
+    }
+
+    .note-card.dismissing {
+      opacity: 0;
+      transform: scale(0.94) translateY(-4px);
+    }
+
+    .note-card-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding-right: 26px;
+      line-height: 1.35;
+      color: #1a1a2e;
+    }
+
+    .note-card-summary {
+      font-size: 0.82rem;
+      color: #4a5068;
+      margin-top: 7px;
+      line-height: 1.5;
+    }
+
+    .note-card-meta {
+      font-size: 0.73rem;
+      color: #7a82a0;
+      margin-top: 10px;
+    }
+
+    .dismiss-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(0,0,0,0.1);
+      color: #5a607a;
+      font-size: 13px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, color 0.15s;
+      flex-shrink: 0;
+    }
+    .dismiss-btn:hover {
+      background: rgba(0,0,0,0.22);
+      color: #1a1a2e;
+    }
+
+    .empty-section {
+      display: none;
+      font-size: 0.8rem;
+      color: #9fa8c0;
+      font-style: italic;
+      padding: 10px 4px;
+    }
+
+    /* ── Colour themes ── */
+    .color-lavender  { background: #ece8f8; }
+    .color-sage      { background: #daeedd; }
+    .color-sky       { background: #d6ebf7; }
+    .color-lilac     { background: #e8d9f5; }
+    .color-yellow    { background: #f7f3cc; }
+
+    .dot-lavender  { background: #9b7fd4; }
+    .dot-sage      { background: #5faa72; }
+    .dot-sky       { background: #4da6d8; }
+    .dot-lilac     { background: #a96dd4; }
+    .dot-yellow    { background: #c9a820; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Good morning, Chris</h1>
+    <p class="date" id="header-date"></p>
+  </div>
+  <button class="restore-btn" onclick="restoreAll()">&#8635; Restore All</button>
+</header>
+
+<main>
+
+  <!-- ── Glendower School ── -->
+  <section class="section" data-section="glendower">
+    <div class="section-header">
+      <span class="section-dot dot-lavender"></span>
+      <span class="section-title">Glendower School</span>
+    </div>
+
+    <div class="note-card color-lavender" id="note-gld-1">
+      <button class="dismiss-btn" onclick="dismiss('note-gld-1')" title="Dismiss">✕</button>
+      <div class="note-card-title">Summer Term Newsletter</div>
+      <div class="note-card-summary">The summer term schedule has been published. Sports Day is confirmed for 18 June. Please return the permission slip by Friday.</div>
+      <div class="note-card-meta">From: office@glendowerschool.co.uk · Today</div>
+    </div>
+
+    <div class="note-card color-lavender" id="note-gld-2">
+      <button class="dismiss-btn" onclick="dismiss('note-gld-2')" title="Dismiss">✕</button>
+      <div class="note-card-title">Parent Consultation Reminder</div>
+      <div class="note-card-summary">Your appointment for the Spring term consultations is booked for Tuesday 7 May at 4:15 pm. Location: Room 6.</div>
+      <div class="note-card-meta">From: admin@glendowerschool.co.uk · Yesterday</div>
+    </div>
+
+    <div class="note-card color-lavender" id="note-gld-3">
+      <button class="dismiss-btn" onclick="dismiss('note-gld-3')" title="Dismiss">✕</button>
+      <div class="note-card-title">School Trip Payment Due</div>
+      <div class="note-card-summary">Reminder that the balance for the Year 4 trip to the Natural History Museum is due by 10 May via ParentPay.</div>
+      <div class="note-card-meta">From: trips@glendowerschool.co.uk · 2 days ago</div>
+    </div>
+
+    <p class="empty-section">No new notes for this section.</p>
+  </section>
+
+  <!-- ── Malden Golf Club ── -->
+  <section class="section" data-section="malden">
+    <div class="section-header">
+      <span class="section-dot dot-sage"></span>
+      <span class="section-title">Malden Golf Club</span>
+    </div>
+
+    <div class="note-card color-sage" id="note-mgc-1">
+      <button class="dismiss-btn" onclick="dismiss('note-mgc-1')" title="Dismiss">✕</button>
+      <div class="note-card-title">May Medal Booking Open</div>
+      <div class="note-card-summary">Tee times for the May Medal on Sunday 11th are now available via the member portal. Book early to secure your preferred slot.</div>
+      <div class="note-card-meta">From: competitions@maldengolf.co.uk · Today</div>
+    </div>
+
+    <div class="note-card color-sage" id="note-mgc-2">
+      <button class="dismiss-btn" onclick="dismiss('note-mgc-2')" title="Dismiss">✕</button>
+      <div class="note-card-title">Course Closure – 6 May</div>
+      <div class="note-card-summary">Holes 3, 4 and 5 will be closed on Tuesday 6 May for bunker renovation works. All other holes remain open.</div>
+      <div class="note-card-meta">From: greenkeeper@maldengolf.co.uk · Yesterday</div>
+    </div>
+
+    <div class="note-card color-sage" id="note-mgc-3">
+      <button class="dismiss-btn" onclick="dismiss('note-mgc-3')" title="Dismiss">✕</button>
+      <div class="note-card-title">Handicap Index Updated</div>
+      <div class="note-card-summary">Your WHS Handicap Index has been recalculated following recent rounds. Log in to the member portal to view your latest index.</div>
+      <div class="note-card-meta">From: handicaps@maldengolf.co.uk · 3 days ago</div>
+    </div>
+
+    <p class="empty-section">No new notes for this section.</p>
+  </section>
+
+  <!-- ── Caddi Club ── -->
+  <section class="section" data-section="caddi">
+    <div class="section-header">
+      <span class="section-dot dot-sky"></span>
+      <span class="section-title">Caddi Club</span>
+    </div>
+
+    <div class="note-card color-sky" id="note-cad-1">
+      <button class="dismiss-btn" onclick="dismiss('note-cad-1')" title="Dismiss">✕</button>
+      <div class="note-card-title">New Feature: Round Tracker</div>
+      <div class="note-card-summary">The Caddi app update 3.2 introduces a real-time round tracker with GPS distances and shot-by-shot logging. Available now on iOS.</div>
+      <div class="note-card-meta">From: hello@caddiclub.com · Today</div>
+    </div>
+
+    <div class="note-card color-sky" id="note-cad-2">
+      <button class="dismiss-btn" onclick="dismiss('note-cad-2')" title="Dismiss">✕</button>
+      <div class="note-card-title">Your April Stats Summary</div>
+      <div class="note-card-summary">You played 6 rounds in April with an average score of +4.2. Fairways hit improved 12% vs March. See your full breakdown in the app.</div>
+      <div class="note-card-meta">From: stats@caddiclub.com · 1 May</div>
+    </div>
+
+    <div class="note-card color-sky" id="note-cad-3">
+      <button class="dismiss-btn" onclick="dismiss('note-cad-3')" title="Dismiss">✕</button>
+      <div class="note-card-title">Membership Renewal Reminder</div>
+      <div class="note-card-summary">Your Caddi Club Pro membership renews on 15 May. No action needed — your card on file will be charged automatically.</div>
+      <div class="note-card-meta">From: billing@caddiclub.com · 30 Apr</div>
+    </div>
+
+    <p class="empty-section">No new notes for this section.</p>
+  </section>
+
+  <!-- ── Transport for London ── -->
+  <section class="section" data-section="tfl">
+    <div class="section-header">
+      <span class="section-dot dot-lilac"></span>
+      <span class="section-title">Transport for London</span>
+    </div>
+
+    <div class="note-card color-lilac" id="note-tfl-1">
+      <button class="dismiss-btn" onclick="dismiss('note-tfl-1')" title="Dismiss">✕</button>
+      <div class="note-card-title">District Line Weekend Closure</div>
+      <div class="note-card-summary">The District line between Earls Court and Wimbledon will be suspended this weekend (3–4 May) for track upgrade works. Rail replacement buses are in operation.</div>
+      <div class="note-card-meta">From: tfl@customerservices.tfl.gov.uk · Today</div>
+    </div>
+
+    <div class="note-card color-lilac" id="note-tfl-2">
+      <button class="dismiss-btn" onclick="dismiss('note-tfl-2')" title="Dismiss">✕</button>
+      <div class="note-card-title">Contactless Statement – April</div>
+      <div class="note-card-summary">Your April travel statement is ready. Total spend: £47.60. You capped 9 times. View or download your statement in your TfL account.</div>
+      <div class="note-card-meta">From: noreply@tfl.gov.uk · 1 May</div>
+    </div>
+
+    <div class="note-card color-lilac" id="note-tfl-3">
+      <button class="dismiss-btn" onclick="dismiss('note-tfl-3')" title="Dismiss">✕</button>
+      <div class="note-card-title">Cycle Hire Membership Confirmed</div>
+      <div class="note-card-summary">Your Santander Cycles annual membership has been renewed for another year. Your key remains active — no need to reactivate.</div>
+      <div class="note-card-meta">From: cyclehire@tfl.gov.uk · 28 Apr</div>
+    </div>
+
+    <p class="empty-section">No new notes for this section.</p>
+  </section>
+
+  <!-- ── Important Emails ── -->
+  <section class="section" data-section="important">
+    <div class="section-header">
+      <span class="section-dot dot-yellow"></span>
+      <span class="section-title">Important Emails</span>
+    </div>
+
+    <div class="note-card color-yellow" id="note-imp-1">
+      <button class="dismiss-btn" onclick="dismiss('note-imp-1')" title="Dismiss">✕</button>
+      <div class="note-card-title">HMRC: Self Assessment Reminder</div>
+      <div class="note-card-summary">A reminder that your Self Assessment tax return for 2024–25 must be submitted online by 31 January 2027. You may file earlier from April.</div>
+      <div class="note-card-meta">From: noreply@tax.service.gov.uk · Today</div>
+    </div>
+
+    <div class="note-card color-yellow" id="note-imp-2">
+      <button class="dismiss-btn" onclick="dismiss('note-imp-2')" title="Dismiss">✕</button>
+      <div class="note-card-title">Dentist Appointment Confirmation</div>
+      <div class="note-card-summary">Your routine check-up is confirmed for Thursday 8 May at 10:30 am with Dr Patel. Please arrive 5 minutes early. Reply to cancel or rearrange.</div>
+      <div class="note-card-meta">From: appointments@kingstondental.co.uk · Yesterday</div>
+    </div>
+
+    <div class="note-card color-yellow" id="note-imp-3">
+      <button class="dismiss-btn" onclick="dismiss('note-imp-3')" title="Dismiss">✕</button>
+      <div class="note-card-title">Home Insurance Renewal</div>
+      <div class="note-card-summary">Your home insurance policy renews on 20 May. The new premium is £624/year, a £48 increase from last year. Click to review or switch provider.</div>
+      <div class="note-card-meta">From: renewals@insurer.co.uk · 2 days ago</div>
+    </div>
+
+    <p class="empty-section">No new notes for this section.</p>
+  </section>
+
+</main>
+
+<script>
+  const DISMISSED_KEY = 'digest_dismissed_v1';
+
+  function getDismissed() {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(DISMISSED_KEY) || '[]'));
+    } catch {
+      return new Set();
+    }
+  }
+
+  function saveDismissed(dismissed) {
+    localStorage.setItem(DISMISSED_KEY, JSON.stringify([...dismissed]));
+  }
+
+  function dismiss(id) {
+    const card = document.getElementById(id);
+    if (!card) return;
+    card.classList.add('dismissing');
+    setTimeout(() => {
+      card.style.display = 'none';
+      const dismissed = getDismissed();
+      dismissed.add(id);
+      saveDismissed(dismissed);
+      checkEmptySections();
+    }, 250);
+  }
+
+  function restoreAll() {
+    localStorage.removeItem(DISMISSED_KEY);
+    document.querySelectorAll('.note-card').forEach(card => {
+      card.style.display = '';
+      card.classList.remove('dismissing');
+    });
+    document.querySelectorAll('.empty-section').forEach(el => {
+      el.style.display = 'none';
+    });
+  }
+
+  function checkEmptySections() {
+    document.querySelectorAll('.section').forEach(section => {
+      const visible = [...section.querySelectorAll('.note-card')]
+        .filter(c => c.style.display !== 'none');
+      const emptyMsg = section.querySelector('.empty-section');
+      if (emptyMsg) emptyMsg.style.display = visible.length === 0 ? 'block' : 'none';
+    });
+  }
+
+  function setDate() {
+    const now = new Date();
+    const opts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+    document.getElementById('header-date').textContent =
+      now.toLocaleDateString('en-GB', opts);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    setDate();
+    const dismissed = getDismissed();
+    dismissed.forEach(id => {
+      const card = document.getElementById(id);
+      if (card) card.style.display = 'none';
+    });
+    checkEmptySections();
+  });
+</script>
+
+</body>
+</html>
