@@ -18,20 +18,41 @@ import subprocess
 import numpy as np
 from scipy import signal
 
+import sys
+
+
+def _arg(flag, default):
+    return float(sys.argv[sys.argv.index(flag) + 1]) if flag in sys.argv else default
+
+
 SR = 48000
-DUR = 60.0
+# The cue is written in a fixed "musical time" where the crescendo is at 40s and
+# the hold+fade tail runs 40->60s. BUILD/POST let us stretch that to picture:
+# BUILD = real time the crescendo should land; POST = length of the hold+fade tail.
+# Defaults (40/20) reproduce the original 60s track exactly (R is the identity).
+BUILD = _arg("--build", 40.0)
+POST = _arg("--post", 20.0)
+HIT = BUILD
+DUR = BUILD + POST
 N = int(SR * DUR)
 t = np.arange(N) / SR
 rng = np.random.default_rng(7)
 OUT = os.path.dirname(os.path.abspath(__file__))
-HIT = 40.0
+OUTNAME = sys.argv[sys.argv.index("--out") + 1] if "--out" in sys.argv else "desert_intro_60s.wav"
+
+
+def R(x):
+    """Map musical time -> real time: stretch the 0-40s build onto 0-BUILD,
+    and the 40-60s tail onto BUILD..BUILD+POST."""
+    x = np.asarray(x, float)
+    return np.where(x <= 40.0, x * (BUILD / 40.0), BUILD + (x - 40.0) * (POST / 20.0))
 
 
 # ---------------------------------------------------------------- helpers
 def env(points):
-    """Piecewise-linear envelope from [(time, value), ...]."""
+    """Piecewise-linear envelope from [(musical_time, value), ...]."""
     ts, vs = zip(*points)
-    return np.interp(t, ts, vs)
+    return np.interp(t, [float(R(tt)) for tt in ts], vs)
 
 
 def sos_filter(x, kind, freq, order=4):
@@ -123,7 +144,7 @@ def make_sand():
         grains = sos_filter((rng.random(n) < 0.02).astype(float), "lowpass", 3000, 2) * 8
         p = np.linspace(-0.9, 0.9, n) * direction
         g = 0.12 if at < 40 else 0.2
-        place(out, pan(x * e * (0.6 + grains), p), at, g)
+        place(out, pan(x * e * (0.6 + grains), p), float(R(at)), g)
     return out
 
 
@@ -155,14 +176,15 @@ PROGRESSION = [  # (start, end, midi notes, brightness) — chord changes speed 
     (33.8, 37.0, [36, 48, 52, 55, 60], 0.9),        # C
     (36.85, 38.5, [33, 45, 52, 57, 62], 1.0),       # A sus4
     (38.4, 40.05, [33, 45, 52, 57, 61, 64], 1.1),   # A major — pulls hard toward D
-    (HIT, 53.0, [26, 38, 45, 50, 53, 57, 62, 65, 69], 1.25),  # D minor HIT
+    (40.0, 53.0, [26, 38, 45, 50, 53, 57, 62, 65, 69], 1.25),  # D minor HIT (musical t=40)
 ]
 
 
 def make_organ():
     out = np.zeros((2, N))
-    for start, end, notes, bright in PROGRESSION:
-        is_hit = start == HIT
+    for start_m, end_m, notes, bright in PROGRESSION:
+        is_hit = start_m == 40.0
+        start, end = float(R(start_m)), float(R(end_m))
         att = 0.03 if is_hit else min(2.5, (end - start) * 0.3)
         rel = 0.4 if not is_hit else 1.0
         for k, m in enumerate(notes):
@@ -174,7 +196,7 @@ def make_organ():
     out *= level
     # faint low D that lingers under the wind after the fade
     tail = organ_note(midi(38), 12, 3, 4, 0.2) + organ_note(midi(26), 12, 3, 4, 0.2)
-    place(out, pan(tail, 0), 47.5, 0.03)
+    place(out, pan(tail, 0), float(R(47.5)), 0.03)
     return out * 0.22
 
 
@@ -211,11 +233,14 @@ def make_brass():
          [(33.8, 4.5), (37, 6)]),
         ([33, 40, 45, 49, 52], 36.85, 40.03, [(36.85, 0), (37.2, 0.8), (39.95, 1.25), (40.03, 0)],
          [(36.85, 5), (39.95, 10)]),
-        ([26, 38, 45, 50, 53, 57], HIT, 53.0,                                    # THE HIT
+        ([26, 38, 45, 50, 53, 57], 40.0, 53.0,                                    # THE HIT
          [(40, 0), (40.03, 1.6), (41.0, 1.15), (44.5, 1.0), (49, 0.2), (53, 0)],
          [(40, 12), (41, 8), (44.5, 6), (49, 2), (53, 1.5)]),
     ]
-    for notes, s, e, amp, br in parts:
+    for notes, s_m, e_m, amp_m, br_m in parts:
+        s, e = float(R(s_m)), float(R(e_m))
+        amp = [(float(R(pt)), v) for pt, v in amp_m]
+        br = [(float(R(pt)), v) for pt, v in br_m]
         for k, m in enumerate(notes):
             x = brass_note(m, s, e, amp, br)
             p = np.linspace(-0.6, 0.6, len(notes))[k] if len(notes) > 1 else 0
@@ -226,13 +251,14 @@ def make_brass():
 # ---------------------------------------------------------------- 5. TENSION: ticking + rising tone
 def make_tension():
     out = np.zeros((2, N))
-    # accelerating tempo: 58 bpm at 12s -> 172 bpm at 40s
-    bpm = np.where(t < 12, 58, 58 * (172 / 58) ** np.clip((t - 12) / 28, 0, 1))
+    # accelerating tempo: 58 bpm -> 172 bpm across the build (musical 12s..40s)
+    t0, t1 = float(R(12)), float(R(40))
+    bpm = np.where(t < t0, 58, 58 * (172 / 58) ** np.clip((t - t0) / (t1 - t0), 0, 1))
     phase = np.cumsum(bpm / 60 / SR)
     beats = np.where(np.diff(np.floor(phase)) > 0)[0] / SR
-    beats = beats[(beats > 12) & (beats < HIT - 0.05)]
+    beats = beats[(beats > t0) & (beats < HIT - 0.05)]
     for i, bt in enumerate(beats):
-        prog = (bt - 12) / 28
+        prog = (bt - t0) / (t1 - t0)
         # tick (clock)
         n = int(0.03 * SR)
         tt = np.arange(n) / SR
@@ -258,8 +284,9 @@ def make_tension():
     sh *= env([(0, 0), (24, 0), (32, 0.25), (39.97, 0.7), (40.0, 0), (60, 0)])
     out += np.stack([sh, np.roll(sh, 240)]) * 0.05
     # reverse-cymbal riser, cut hard on the hit
+    r35 = float(R(35))
     rise = sos_filter(noise(), "highpass", 1500, 2)
-    rise *= np.clip((t - 35) / 5, 0, 1) ** 3 * (t < HIT)
+    rise *= np.clip((t - r35) / (HIT - r35), 0, 1) ** 3 * (t < HIT)
     out += np.stack([rise, np.roll(rise, 900)]) * 0.12
     return out
 
@@ -302,8 +329,8 @@ def jingle(n_partials=5, length=0.12):
 def make_boots():
     bus = np.zeros((2, N))
     cadence = 1.75  # steps per second
-    grid = HIT - np.arange(0, 60) / cadence
-    grid = np.sort(grid[grid > 5.5])[:-1]  # last step before the halt
+    grid = HIT - np.arange(0, int(HIT * cadence) + 4) / cadence
+    grid = np.sort(grid[grid > float(R(5.5))])[:-1]  # last step before the halt
     soldiers = 28
     offs = rng.normal(0, 0.018, soldiers)
     pans = rng.uniform(-0.8, 0.8, soldiers)
@@ -349,7 +376,7 @@ def make_horses():
     for h in range(5):
         stride = rng.uniform(1.05, 1.25)
         p = rng.uniform(-0.7, 0.7)
-        at = 13 + rng.uniform(0, 1)
+        at = float(R(13)) + rng.uniform(0, 1)
         while at < HIT - 0.05:
             for frac in (0, 0.27, 0.5, 0.77):
                 bt = at + frac * stride + rng.normal(0, 0.01)
@@ -363,7 +390,8 @@ def make_horses():
     far = np.stack([sos_filter(c, "lowpass", 500, 2) for c in bus])
     level = env([(0, 0), (13, 0), (16, 0.15), (40, 0.9), (60, 0.9)])
     out = (far * (1 - d) + bus * d) * level * 0.35
-    for at, g, p in [(22.0, 0.08, -0.5), (31.5, 0.12, 0.4), (43.2, 0.22, 0.3), (52.6, 0.16, -0.4)]:
+    for at_m, g, p in [(22.0, 0.08, -0.5), (31.5, 0.12, 0.4), (43.2, 0.22, 0.3), (52.6, 0.16, -0.4)]:
+        at = float(R(at_m))
         place(out, pan(snort(), p), at, g)
         place(out, pan(jingle(5, 0.3), p), at + 0.1, g * 0.4)
     return out
@@ -390,13 +418,14 @@ def main():
     mix = np.tanh(mix * 1.1) / np.tanh(1.1)          # gentle glue / safety
     mix *= 10 ** (-1 / 20) / np.abs(mix).max()       # peak at -1 dBFS
 
-    wav = os.path.join(OUT, "desert_intro_60s.wav")
+    wav = os.path.join(OUT, OUTNAME)
     raw = (np.clip(mix.T, -1, 1) * 32767).astype("<i2").tobytes()
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "s16le", "-ar", str(SR), "-ac", "2",
                     "-i", "-", "-c:a", "pcm_s16le", wav], input=raw, check=True)
-    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", wav, "-c:a", "libmp3lame",
-                    "-b:a", "320k", os.path.join(OUT, "desert_intro_60s.mp3")], check=True)
-    print("done ->", wav)
+    if "--no-mp3" not in sys.argv:
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", wav, "-c:a", "libmp3lame",
+                        "-b:a", "320k", os.path.splitext(wav)[0] + ".mp3"], check=True)
+    print(f"done -> {wav}  (crescendo at {HIT:.2f}s, length {DUR:.2f}s)")
 
 
 if __name__ == "__main__":
